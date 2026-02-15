@@ -138,6 +138,15 @@ pub struct NoClock;
 
 impl TlsClock for NoClock {
     fn now() -> Option<u64> {
+        #[cfg(feature = "system-clock")]
+        {
+            unsafe extern "Rust" {
+                fn embedded_tls_system_clock_now() -> u64;
+            }
+            let secs = unsafe { embedded_tls_system_clock_now() };
+            return if secs == 0 { None } else { Some(secs) };
+        }
+        #[cfg(not(feature = "system-clock"))]
         None
     }
 }

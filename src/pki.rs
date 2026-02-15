@@ -5,7 +5,7 @@ use crate::der_certificate::ECDSA_SHA384;
 #[cfg(feature = "ed25519")]
 use crate::der_certificate::ED25519;
 use crate::der_certificate::{DecodedCertificate, ECDSA_SHA256, Time};
-#[cfg(feature = "rsa")]
+#[cfg(any(feature = "rsa", feature = "hw-rsa"))]
 use crate::der_certificate::{RSA_PKCS1_SHA256, RSA_PKCS1_SHA384, RSA_PKCS1_SHA512};
 use crate::extensions::extension_data::signature_algorithms::SignatureScheme;
 use crate::handshake::{
@@ -259,6 +259,51 @@ fn verify_signature(
                 Signature::try_from(verify.signature).map_err(|_| TlsError::DecodeError)?;
             verified = verifying_key.verify(message, &signature).is_ok();
         }
+        #[cfg(feature = "hw-rsa")]
+        SignatureScheme::RsaPssRsaeSha256 => {
+            unsafe extern "Rust" {
+                safe fn embedded_tls_verify_rsa_pss_sha256(
+                    pk: *const u8, pk_len: usize,
+                    sig: *const u8, sig_len: usize,
+                    msg: *const u8, msg_len: usize,
+                ) -> bool;
+            }
+            verified = embedded_tls_verify_rsa_pss_sha256(
+                public_key.as_ptr(), public_key.len(),
+                verify.signature.as_ptr(), verify.signature.len(),
+                message.as_ptr(), message.len(),
+            );
+        }
+        #[cfg(feature = "hw-rsa")]
+        SignatureScheme::RsaPssRsaeSha384 => {
+            unsafe extern "Rust" {
+                safe fn embedded_tls_verify_rsa_pss_sha384(
+                    pk: *const u8, pk_len: usize,
+                    sig: *const u8, sig_len: usize,
+                    msg: *const u8, msg_len: usize,
+                ) -> bool;
+            }
+            verified = embedded_tls_verify_rsa_pss_sha384(
+                public_key.as_ptr(), public_key.len(),
+                verify.signature.as_ptr(), verify.signature.len(),
+                message.as_ptr(), message.len(),
+            );
+        }
+        #[cfg(feature = "hw-rsa")]
+        SignatureScheme::RsaPssRsaeSha512 => {
+            unsafe extern "Rust" {
+                safe fn embedded_tls_verify_rsa_pss_sha512(
+                    pk: *const u8, pk_len: usize,
+                    sig: *const u8, sig_len: usize,
+                    msg: *const u8, msg_len: usize,
+                ) -> bool;
+            }
+            verified = embedded_tls_verify_rsa_pss_sha512(
+                public_key.as_ptr(), public_key.len(),
+                verify.signature.as_ptr(), verify.signature.len(),
+                message.as_ptr(), message.len(),
+            );
+        }
         _ => {
             error!(
                 "InvalidSignatureScheme: {:?} Are you missing a feature?",
@@ -465,6 +510,63 @@ fn verify_certificate(
                 .map_err(|_| TlsError::ParseError(ParseError::InvalidData))?;
 
                 verified = verifying_key.verify(certificate_data, &signature).is_ok();
+            }
+            #[cfg(feature = "hw-rsa")]
+            a if a == RSA_PKCS1_SHA256 => {
+                unsafe extern "Rust" {
+                    safe fn embedded_tls_verify_rsa_pkcs1v15_sha256(
+                        pk: *const u8, pk_len: usize,
+                        sig: *const u8, sig_len: usize,
+                        msg: *const u8, msg_len: usize,
+                    ) -> bool;
+                }
+                let sig_bytes = parsed_certificate
+                    .signature
+                    .as_bytes()
+                    .ok_or(TlsError::ParseError(ParseError::InvalidData))?;
+                verified = embedded_tls_verify_rsa_pkcs1v15_sha256(
+                    ca_public_key.as_ptr(), ca_public_key.len(),
+                    sig_bytes.as_ptr(), sig_bytes.len(),
+                    certificate_data.as_ptr(), certificate_data.len(),
+                );
+            }
+            #[cfg(feature = "hw-rsa")]
+            a if a == RSA_PKCS1_SHA384 => {
+                unsafe extern "Rust" {
+                    safe fn embedded_tls_verify_rsa_pkcs1v15_sha384(
+                        pk: *const u8, pk_len: usize,
+                        sig: *const u8, sig_len: usize,
+                        msg: *const u8, msg_len: usize,
+                    ) -> bool;
+                }
+                let sig_bytes = parsed_certificate
+                    .signature
+                    .as_bytes()
+                    .ok_or(TlsError::ParseError(ParseError::InvalidData))?;
+                verified = embedded_tls_verify_rsa_pkcs1v15_sha384(
+                    ca_public_key.as_ptr(), ca_public_key.len(),
+                    sig_bytes.as_ptr(), sig_bytes.len(),
+                    certificate_data.as_ptr(), certificate_data.len(),
+                );
+            }
+            #[cfg(feature = "hw-rsa")]
+            a if a == RSA_PKCS1_SHA512 => {
+                unsafe extern "Rust" {
+                    safe fn embedded_tls_verify_rsa_pkcs1v15_sha512(
+                        pk: *const u8, pk_len: usize,
+                        sig: *const u8, sig_len: usize,
+                        msg: *const u8, msg_len: usize,
+                    ) -> bool;
+                }
+                let sig_bytes = parsed_certificate
+                    .signature
+                    .as_bytes()
+                    .ok_or(TlsError::ParseError(ParseError::InvalidData))?;
+                verified = embedded_tls_verify_rsa_pkcs1v15_sha512(
+                    ca_public_key.as_ptr(), ca_public_key.len(),
+                    sig_bytes.as_ptr(), sig_bytes.len(),
+                    certificate_data.as_ptr(), certificate_data.len(),
+                );
             }
             _ => {
                 error!(

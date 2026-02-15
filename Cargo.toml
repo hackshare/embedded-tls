@@ -32,7 +32,7 @@ embedded-io-adapters = { version = "0.7", optional = true }
 generic-array = { version = "0.14", default-features = false }
 webpki = { package = "rustls-webpki", version = "0.101.7", default-features = false, optional = true }
 const-oid = { version = "0.10.1", optional = true }
-der = { version = "0.8.0-rc.2", features = ["derive", "oid", "time"], optional = true }
+der = { version = "0.8.0-rc.2", features = ["derive", "oid", "time", "heapless"], optional = true }
 signature = { version = "2.2", default-features = false }
 ecdsa = { version = "0.16.9", default-features = false }
 
@@ -41,6 +41,7 @@ log = { version = "0.4", optional = true }
 defmt = { version = "1.0.1", optional = true }
 
 [dev-dependencies]
+rsa = { version = "0.9.9", features = ["sha2"] }
 env_logger = "0.11"
 tokio = { version = "1", features = ["full"] }
 mio = { version = "0.8.3", features = ["os-poll", "net"] }
@@ -61,5 +62,6 @@ alloc = []
 webpki = ["dep:webpki"]
 rustpki = ["dep:der","dep:const-oid"]
 rsa = ["dep:rsa", "rustpki", "alloc"]
+hw-rsa = ["rustpki"]
 ed25519 = ["dep:ed25519-dalek", "rustpki"]
 p384 = ["dep:p384", "rustpki"]

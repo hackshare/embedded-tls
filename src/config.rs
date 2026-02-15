@@ -267,7 +267,7 @@ impl<'a> TlsConfig<'a> {
             priv_key: &[],
         };
 
-        if cfg!(feature = "alloc") {
+        if cfg!(any(feature = "alloc", feature = "hw-rsa")) {
             config = config.enable_rsa_signatures();
         }
 

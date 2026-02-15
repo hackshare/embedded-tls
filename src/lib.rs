@@ -47,6 +47,9 @@ async fn main() {
 ```
 */
 
+#[cfg(all(feature = "rsa", feature = "hw-rsa"))]
+compile_error!("Features `rsa` and `hw-rsa` are mutually exclusive. Use `rsa` for software RSA or `hw-rsa` for hardware-accelerated RSA, not both.");
+
 // This mod MUST go first, so that the others see its macros.
 pub(crate) mod fmt;
 

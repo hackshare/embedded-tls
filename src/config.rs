@@ -277,12 +277,14 @@ impl<'a> TlsConfig<'a> {
                 .push(SignatureScheme::EcdsaSecp256r1Sha256)
                 .ok()
         );
+        #[cfg(feature = "p384")]
         unwrap!(
             config
                 .signature_schemes
                 .push(SignatureScheme::EcdsaSecp384r1Sha384)
                 .ok()
         );
+        #[cfg(feature = "ed25519")]
         unwrap!(config.signature_schemes.push(SignatureScheme::Ed25519).ok());
 
         unwrap!(config.named_groups.push(NamedGroup::Secp256r1));

@@ -32,6 +32,11 @@ pub const ED25519: AlgorithmIdentifier = AlgorithmIdentifier {
     parameters: None,
 };
 #[cfg(any(feature = "rsa", feature = "hw-rsa"))]
+pub const RSA_PKCS1_SHA1: AlgorithmIdentifier = AlgorithmIdentifier {
+    oid: ObjectIdentifier::new_unwrap("1.2.840.113549.1.1.5"),
+    parameters: Some(AnyRef::NULL),
+};
+#[cfg(any(feature = "rsa", feature = "hw-rsa"))]
 pub const RSA_PKCS1_SHA256: AlgorithmIdentifier = AlgorithmIdentifier {
     oid: ObjectIdentifier::new_unwrap("1.2.840.113549.1.1.11"),
     parameters: Some(AnyRef::NULL),

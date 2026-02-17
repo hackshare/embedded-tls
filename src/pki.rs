@@ -6,7 +6,7 @@ use crate::der_certificate::ECDSA_SHA384;
 use crate::der_certificate::ED25519;
 use crate::der_certificate::{DecodedCertificate, ECDSA_SHA256, Time};
 #[cfg(any(feature = "rsa", feature = "hw-rsa"))]
-use crate::der_certificate::{RSA_PKCS1_SHA256, RSA_PKCS1_SHA384, RSA_PKCS1_SHA512};
+use crate::der_certificate::{RSA_PKCS1_SHA1, RSA_PKCS1_SHA256, RSA_PKCS1_SHA384, RSA_PKCS1_SHA512};
 use crate::extensions::extension_data::signature_algorithms::SignatureScheme;
 use crate::handshake::{
     certificate::{
@@ -379,9 +379,10 @@ fn verify_certificate(
         }
 
         if let Some(now) = now {
-            if get_cert_time(parsed_certificate.tbs_certificate.validity.not_before) > now
-                || get_cert_time(parsed_certificate.tbs_certificate.validity.not_after) < now
-            {
+            let not_before = get_cert_time(parsed_certificate.tbs_certificate.validity.not_before);
+            let not_after = get_cert_time(parsed_certificate.tbs_certificate.validity.not_after);
+            if not_before > now || not_after < now {
+                debug!("Cert time invalid: now={} not_before={} not_after={}", now, not_before, not_after);
                 return Err(TlsError::InvalidCertificate);
             }
             debug!("Epoch is {} and certificate is valid!", now)
@@ -568,6 +569,25 @@ fn verify_certificate(
                     certificate_data.as_ptr(), certificate_data.len(),
                 );
             }
+            #[cfg(feature = "hw-rsa")]
+            a if a == RSA_PKCS1_SHA1 => {
+                unsafe extern "Rust" {
+                    safe fn embedded_tls_verify_rsa_pkcs1v15_sha1(
+                        pk: *const u8, pk_len: usize,
+                        sig: *const u8, sig_len: usize,
+                        msg: *const u8, msg_len: usize,
+                    ) -> bool;
+                }
+                let sig_bytes = parsed_certificate
+                    .signature
+                    .as_bytes()
+                    .ok_or(TlsError::ParseError(ParseError::InvalidData))?;
+                verified = embedded_tls_verify_rsa_pkcs1v15_sha1(
+                    ca_public_key.as_ptr(), ca_public_key.len(),
+                    sig_bytes.as_ptr(), sig_bytes.len(),
+                    certificate_data.as_ptr(), certificate_data.len(),
+                );
+            }
             _ => {
                 error!(
                     "Unsupported signature alg: {:?}",
@@ -579,6 +599,7 @@ fn verify_certificate(
     }
 
     if !verified {
+        debug!("Cert signature verification failed: cn={:?}", common_name);
         return Err(TlsError::InvalidCertificate);
     }
 

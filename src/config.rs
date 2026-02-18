@@ -138,6 +138,15 @@ pub struct NoClock;
 
 impl TlsClock for NoClock {
     fn now() -> Option<u64> {
+        #[cfg(feature = "system-clock")]
+        {
+            unsafe extern "Rust" {
+                fn embedded_tls_system_clock_now() -> u64;
+            }
+            let secs = unsafe { embedded_tls_system_clock_now() };
+            return if secs == 0 { None } else { Some(secs) };
+        }
+        #[cfg(not(feature = "system-clock"))]
         None
     }
 }
@@ -267,7 +276,7 @@ impl<'a> TlsConfig<'a> {
             priv_key: &[],
         };
 
-        if cfg!(feature = "alloc") {
+        if cfg!(any(feature = "alloc", feature = "hw-rsa")) {
             config = config.enable_rsa_signatures();
         }
 
@@ -277,12 +286,14 @@ impl<'a> TlsConfig<'a> {
                 .push(SignatureScheme::EcdsaSecp256r1Sha256)
                 .ok()
         );
+        #[cfg(feature = "p384")]
         unwrap!(
             config
                 .signature_schemes
                 .push(SignatureScheme::EcdsaSecp384r1Sha384)
                 .ok()
         );
+        #[cfg(feature = "ed25519")]
         unwrap!(config.signature_schemes.push(SignatureScheme::Ed25519).ok());
 
         unwrap!(config.named_groups.push(NamedGroup::Secp256r1));
